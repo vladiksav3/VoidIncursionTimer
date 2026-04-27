@@ -1,0 +1,13 @@
+.DS_Store
+Thumbs.db
+
+# Editor folders
+.idea/
+.vscode/
+
+# Lua language server
+.luarc.json
+
+# Local test/build output
+dist/
+build/

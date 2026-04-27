@@ -1,0 +1,9 @@
+## Interface: 120005
+## Title: PercentToTime
+## Notes: Basic hello world addon
+## Author: TrafalMar
+## Version: 0.1.0
+
+Core.lua
+MinimapButton.lua
+Init.lua
