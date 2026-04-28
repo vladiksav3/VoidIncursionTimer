@@ -15,3 +15,6 @@ build/
 
 # Release packaging
 release/
+
+# Local scripts
+scripts/
