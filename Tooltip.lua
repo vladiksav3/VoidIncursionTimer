@@ -45,6 +45,15 @@ local function GetRegion(frame, index)
     return select(index, frame:GetRegions())
 end
 
+local function TextContains(text, targetText)
+    if not text or not targetText then
+        return false
+    end
+
+    local ok, found = pcall(string.find, text, targetText, 1, true)
+    return ok and found ~= nil
+end
+
 local function FrameTextContains(frame, targetText)
     if not frame then
         return false
@@ -54,8 +63,8 @@ local function FrameTextContains(frame, targetText)
     for index = 1, regionCount do
         local region = GetRegion(frame, index)
         if region and region.GetObjectType and region:GetObjectType() == "FontString" then
-            local text = region:GetText()
-            if text and string.find(text, targetText, 1, true) then
+            local ok, text = pcall(region.GetText, region)
+            if ok and TextContains(text, targetText) then
                 return true
             end
         end
@@ -76,12 +85,12 @@ local function TooltipContainsTarget(tooltip)
     local lineCount = tooltip:NumLines()
     for index = 1, lineCount do
         local leftText = addon:GetTooltipText(tooltip, "Left", index)
-        if leftText and string.find(leftText, TARGET_TITLE, 1, true) then
+        if TextContains(leftText, TARGET_TITLE) then
             return true
         end
 
         local rightText = addon:GetTooltipText(tooltip, "Right", index)
-        if rightText and string.find(rightText, TARGET_TITLE, 1, true) then
+        if TextContains(rightText, TARGET_TITLE) then
             return true
         end
     end
@@ -245,7 +254,13 @@ function addon:UpdateTrackedTooltip(tooltip)
     local displayText = string.format("%.2f%% (%s)", percent, addon:FormatTimeEstimate(GetSecondsRemaining(percent)))
 
     local line = addon:GetTooltipLine(tooltip, lineSide, lineIndex)
-    if line and line:GetText() ~= displayText then
+    local shouldUpdate = true
+    if line then
+        local ok, currentText = pcall(line.GetText, line)
+        shouldUpdate = not ok or currentText ~= displayText
+    end
+
+    if line and shouldUpdate then
         line:SetText(displayText)
         tooltip:Show()
     end

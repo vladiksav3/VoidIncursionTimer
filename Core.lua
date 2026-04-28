@@ -77,7 +77,12 @@ function addon:GetTooltipText(tooltip, side, index)
         return nil
     end
 
-    return line:GetText()
+    local ok, text = pcall(line.GetText, line)
+    if not ok then
+        return nil
+    end
+
+    return text
 end
 
 function addon:FormatTimeEstimate(secondsRemaining)
