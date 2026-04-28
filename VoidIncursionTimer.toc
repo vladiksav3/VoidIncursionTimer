@@ -1,0 +1,10 @@
+## Interface: 120005
+## Title: VoidIncursionTimer
+## Notes: Shows Void Incursion progress with a time estimate
+## Author: TrafalMar
+## Version: 0.1.0
+## IconTexture: Interface\AddOns\VoidIncursionTimer\Media\curseforge-logo.png
+
+Core.lua
+Tooltip.lua
+Init.lua

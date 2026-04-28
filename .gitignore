@@ -11,3 +11,4 @@ Thumbs.db
 # Local test/build output
 dist/
 build/
+*.zip

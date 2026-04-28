@@ -7,12 +7,16 @@ local TOOLTIP_NAMES = {
     "GameTooltip",
     "WorldMapTooltip",
 }
+local TOOLTIP_SIDES = {
+    "Left",
+    "Right",
+}
 
 local tooltipFrame = CreateFrame("Frame")
 local elapsedSinceUpdate = 0
-local timerStartTime
 local timerStartPercent
 local lastSeenPercent
+local elapsedTrackedTime = 0
 local RECALIBRATION_INTERVAL = 180
 local RECALIBRATION_THRESHOLD_PERCENT = 95
 
@@ -35,45 +39,36 @@ local function GetSecondsRemaining(percent)
         return nil
     end
 
-    local now = GetTime()
-    if not timerStartTime or not timerStartPercent then
-        timerStartTime = now
+    if not timerStartPercent then
         timerStartPercent = percent
+        elapsedTrackedTime = 0
     elseif lastSeenPercent and percent < lastSeenPercent then
-        timerStartTime = now
         timerStartPercent = percent
+        elapsedTrackedTime = 0
     elseif percent >= 100 then
-        timerStartTime = now
         timerStartPercent = percent
-    elseif percent <= RECALIBRATION_THRESHOLD_PERCENT and (now - timerStartTime) >= RECALIBRATION_INTERVAL then
-        timerStartTime = now
+        elapsedTrackedTime = 0
+    elseif percent <= RECALIBRATION_THRESHOLD_PERCENT and elapsedTrackedTime >= RECALIBRATION_INTERVAL then
         timerStartPercent = percent
+        elapsedTrackedTime = 0
     end
 
     lastSeenPercent = percent
 
     local initialRemainingSeconds = (100 - timerStartPercent) * SECONDS_PER_PERCENT
-    return math.max(0, initialRemainingSeconds - (now - timerStartTime))
+    return math.max(0, initialRemainingSeconds - elapsedTrackedTime)
 end
 
-local function EnumerateChildren(frame)
-    local index = 1
-    local children = { frame:GetChildren() }
-    return function()
-        local child = children[index]
-        index = index + 1
-        return child
-    end
+local function ShouldAdvanceTrackedTime()
+    return WorldMapFrame and WorldMapFrame:IsShown()
 end
 
-local function EnumerateRegions(frame)
-    local index = 1
-    local regions = { frame:GetRegions() }
-    return function()
-        local region = regions[index]
-        index = index + 1
-        return region
-    end
+local function GetChild(frame, index)
+    return select(index, frame:GetChildren())
+end
+
+local function GetRegion(frame, index)
+    return select(index, frame:GetRegions())
 end
 
 local function FrameTextContains(frame, targetText)
@@ -81,7 +76,9 @@ local function FrameTextContains(frame, targetText)
         return false
     end
 
-    for region in EnumerateRegions(frame) do
+    local regionCount = frame:GetNumRegions() or 0
+    for index = 1, regionCount do
+        local region = GetRegion(frame, index)
         if region and region.GetObjectType and region:GetObjectType() == "FontString" then
             local text = region:GetText()
             if text and text:find(targetText, 1, true) then
@@ -90,7 +87,9 @@ local function FrameTextContains(frame, targetText)
         end
     end
 
-    for child in EnumerateChildren(frame) do
+    local childCount = frame:GetNumChildren() or 0
+    for index = 1, childCount do
+        local child = GetChild(frame, index)
         if FrameTextContains(child, targetText) then
             return true
         end
@@ -129,7 +128,9 @@ local function FindWidgetStatusBar(frame)
         return frame
     end
 
-    for child in EnumerateChildren(frame) do
+    local childCount = frame:GetNumChildren() or 0
+    for index = 1, childCount do
+        local child = GetChild(frame, index)
         local statusBar = FindWidgetStatusBar(child)
         if statusBar then
             return statusBar
@@ -157,7 +158,9 @@ local function HideWidgetOverlays(frame)
         frame.hiddenTextRegions = nil
     end
 
-    for child in EnumerateChildren(frame) do
+    local childCount = frame:GetNumChildren() or 0
+    for index = 1, childCount do
+        local child = GetChild(frame, index)
         HideWidgetOverlays(child)
     end
 end
@@ -169,7 +172,9 @@ local function HideOriginalStatusBarText(frame, overlay)
 
     frame.hiddenTextRegions = frame.hiddenTextRegions or {}
 
-    for region in EnumerateRegions(frame) do
+    local regionCount = frame:GetNumRegions() or 0
+    for index = 1, regionCount do
+        local region = GetRegion(frame, index)
         if region and region ~= overlay and region.GetObjectType and region:GetObjectType() == "FontString" then
             if region:IsShown() then
                 if region.originalAlpha == nil then
@@ -181,7 +186,9 @@ local function HideOriginalStatusBarText(frame, overlay)
         end
     end
 
-    for child in EnumerateChildren(frame) do
+    local childCount = frame:GetNumChildren() or 0
+    for index = 1, childCount do
+        local child = GetChild(frame, index)
         HideOriginalStatusBarText(child, overlay)
     end
 end
@@ -226,7 +233,7 @@ end
 local function FindPercentLine(tooltip)
     local lineCount = tooltip:NumLines()
     for index = 2, lineCount do
-        for _, side in ipairs({ "Left", "Right" }) do
+        for _, side in ipairs(TOOLTIP_SIDES) do
             local text = addon:GetTooltipText(tooltip, side, index)
             if GetPercentFromText(text) then
                 return side, index, text
@@ -272,6 +279,10 @@ end
 
 function addon:StartTooltipWatcher()
     tooltipFrame:SetScript("OnUpdate", function(_, elapsed)
+        if ShouldAdvanceTrackedTime() then
+            elapsedTrackedTime = elapsedTrackedTime + elapsed
+        end
+
         elapsedSinceUpdate = elapsedSinceUpdate + elapsed
         if elapsedSinceUpdate < UPDATE_INTERVAL then
             return
