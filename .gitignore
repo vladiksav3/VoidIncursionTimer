@@ -12,3 +12,6 @@ Thumbs.db
 dist/
 build/
 *.zip
+
+# Release packaging
+release/
