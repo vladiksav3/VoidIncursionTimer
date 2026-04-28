@@ -20,12 +20,12 @@ local function GetPercentFromText(text)
         return nil
     end
 
-    local value = text:match("(%d+[%.,]?%d*)%%")
+    local value = string.match(text, "(%d+[%.,]?%d*)%%")
     if not value then
         return nil
     end
 
-    value = value:gsub(",", ".")
+    value = string.gsub(value, ",", ".")
     return tonumber(value)
 end
 
@@ -55,7 +55,7 @@ local function FrameTextContains(frame, targetText)
         local region = GetRegion(frame, index)
         if region and region.GetObjectType and region:GetObjectType() == "FontString" then
             local text = region:GetText()
-            if text and text:find(targetText, 1, true) then
+            if text and string.find(text, targetText, 1, true) then
                 return true
             end
         end
@@ -76,12 +76,12 @@ local function TooltipContainsTarget(tooltip)
     local lineCount = tooltip:NumLines()
     for index = 1, lineCount do
         local leftText = addon:GetTooltipText(tooltip, "Left", index)
-        if leftText and leftText:find(TARGET_TITLE, 1, true) then
+        if leftText and string.find(leftText, TARGET_TITLE, 1, true) then
             return true
         end
 
         local rightText = addon:GetTooltipText(tooltip, "Right", index)
-        if rightText and rightText:find(TARGET_TITLE, 1, true) then
+        if rightText and string.find(rightText, TARGET_TITLE, 1, true) then
             return true
         end
     end
