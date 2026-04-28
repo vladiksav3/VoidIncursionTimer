@@ -2,9 +2,11 @@
 ## Title: VoidIncursionTimer
 ## Notes: Shows Void Incursion progress with a time estimate
 ## Author: TrafalMar
-## Version: 0.1.3
+## Version: 0.1.4
 ## IconTexture: Interface\AddOns\VoidIncursionTimer\Media\curseforge-logo.png
+## SavedVariables: VoidIncursionTimerDB
 
 Core.lua
 Tooltip.lua
+MinimapButton.lua
 Init.lua

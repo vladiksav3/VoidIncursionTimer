@@ -2,7 +2,7 @@ local _, addon = ...
 
 local TARGET_TITLE = addon.L.targetTitle
 local UPDATE_INTERVAL = 0.25
-local SECONDS_PER_PERCENT = 90
+local SECONDS_PER_PERCENT = 60
 local TOOLTIP_NAMES = {
     "GameTooltip",
     "WorldMapTooltip",
@@ -14,6 +14,11 @@ local TOOLTIP_SIDES = {
 
 local tooltipFrame = CreateFrame("Frame")
 local elapsedSinceUpdate = 0
+local progressState = {
+    anchorPercent = nil,
+    anchorTime = nil,
+    secPerPercent = nil,
+}
 
 local function GetPercentFromText(text)
     if not text then
@@ -29,12 +34,70 @@ local function GetPercentFromText(text)
     return tonumber(value)
 end
 
+local function ObserveProgress(percent)
+    if not percent then
+        return
+    end
+
+    local now = GetTime()
+    local anchorPercent = progressState.anchorPercent
+    local anchorTime = progressState.anchorTime
+
+    if anchorPercent and anchorTime then
+        local deltaPercent = percent - anchorPercent
+        local deltaTime = now - anchorTime
+
+        if deltaPercent > 0 and deltaTime > 0 then
+            local measuredSecondsPerPercent = deltaTime / deltaPercent
+            if progressState.secPerPercent then
+                progressState.secPerPercent = (progressState.secPerPercent * 0.7) + (measuredSecondsPerPercent * 0.3)
+            else
+                progressState.secPerPercent = measuredSecondsPerPercent
+            end
+            progressState.anchorPercent = percent
+            progressState.anchorTime = now
+            return
+        elseif deltaPercent < 0 then
+            progressState.secPerPercent = nil
+            progressState.anchorPercent = percent
+            progressState.anchorTime = now
+            return
+        end
+    end
+
+    if not anchorPercent then
+        progressState.anchorPercent = percent
+        progressState.anchorTime = now
+    end
+end
+
+local function GetSecondsPerPercent()
+    if addon:IsEstimatedTimeEnabled() then
+        return progressState.secPerPercent
+    end
+
+    return SECONDS_PER_PERCENT
+end
+
 local function GetSecondsRemaining(percent)
     if not percent then
         return nil
     end
 
-    return math.max(0, (100 - percent) * SECONDS_PER_PERCENT)
+    local secondsPerPercent = GetSecondsPerPercent()
+    if not secondsPerPercent or secondsPerPercent <= 0 then
+        return nil
+    end
+
+    return math.max(0, (100 - percent) * secondsPerPercent)
+end
+
+local function FormatSecondsPerPercent(secondsPerPercent)
+    if not secondsPerPercent or secondsPerPercent <= 0 then
+        return nil
+    end
+
+    return string.format("1%%=%s", addon:FormatTimeEstimate(secondsPerPercent))
 end
 
 local function GetChild(frame, index)
@@ -43,6 +106,18 @@ end
 
 local function GetRegion(frame, index)
     return select(index, frame:GetRegions())
+end
+
+local function FormatDisplayText(percent)
+    local etaText = addon:FormatTimeEstimate(GetSecondsRemaining(percent))
+    if addon:IsEstimatedTimeEnabled() then
+        local rateText = FormatSecondsPerPercent(GetSecondsPerPercent())
+        if rateText then
+            return string.format("%.2f%% (%s, %s)", percent, etaText, rateText)
+        end
+    end
+
+    return string.format("%.2f%% (%s)", percent, etaText)
 end
 
 local function TextContains(text, targetText)
@@ -148,6 +223,19 @@ local function HideWidgetOverlays(frame)
     end
 end
 
+local function RestoreTooltipLines(tooltip)
+    local lineCount = tooltip and tooltip:NumLines() or 0
+    for index = 1, lineCount do
+        for _, side in ipairs(TOOLTIP_SIDES) do
+            local line = addon:GetTooltipLine(tooltip, side, index)
+            if line and line.vitOriginalText then
+                line:SetText(line.vitOriginalText)
+                line.vitOriginalText = nil
+            end
+        end
+    end
+end
+
 local function HideOriginalStatusBarText(frame, overlay)
     if not frame then
         return
@@ -204,10 +292,11 @@ local function UpdateWidgetStatusBar(tooltip)
     end
 
     local percent = ((currentValue - minValue) / (maxValue - minValue)) * 100
+    ObserveProgress(percent)
     local overlay = EnsureBarOverlay(statusBar)
     HideOriginalStatusBarText(statusBar, overlay)
 
-    local displayText = string.format("%.2f%% (%s)", percent, addon:FormatTimeEstimate(GetSecondsRemaining(percent)))
+    local displayText = FormatDisplayText(percent)
     overlay:SetText(displayText)
     overlay:Show()
     return true
@@ -233,11 +322,13 @@ function addon:UpdateTrackedTooltip(tooltip)
     end
 
     if not TooltipContainsTarget(tooltip) then
+        RestoreTooltipLines(tooltip)
         HideWidgetOverlays(tooltip.widgetContainer)
         return
     end
 
     if UpdateWidgetStatusBar(tooltip) then
+        RestoreTooltipLines(tooltip)
         return
     end
 
@@ -251,18 +342,36 @@ function addon:UpdateTrackedTooltip(tooltip)
         return
     end
 
-    local displayText = string.format("%.2f%% (%s)", percent, addon:FormatTimeEstimate(GetSecondsRemaining(percent)))
+    ObserveProgress(percent)
+    local displayText = FormatDisplayText(percent)
 
     local line = addon:GetTooltipLine(tooltip, lineSide, lineIndex)
     local shouldUpdate = true
+    local currentText = nil
     if line then
-        local ok, currentText = pcall(line.GetText, line)
+        local ok, existingText = pcall(line.GetText, line)
+        currentText = ok and existingText or nil
         shouldUpdate = not ok or currentText ~= displayText
     end
 
     if line and shouldUpdate then
+        if line.vitOriginalText == nil then
+            line.vitOriginalText = currentText or lineText
+        end
         line:SetText(displayText)
         tooltip:Show()
+    end
+end
+
+function addon:RefreshVisibleTooltips()
+    for _, tooltipName in ipairs(TOOLTIP_NAMES) do
+        local tooltip = _G[tooltipName]
+        if tooltip and tooltip:IsShown() then
+            self:UpdateTrackedTooltip(tooltip)
+        elseif tooltip then
+            RestoreTooltipLines(tooltip)
+            HideWidgetOverlays(tooltip.widgetContainer)
+        end
     end
 end
 
@@ -274,14 +383,7 @@ function addon:StartTooltipWatcher()
         end
 
         elapsedSinceUpdate = 0
-        for _, tooltipName in ipairs(TOOLTIP_NAMES) do
-            local tooltip = _G[tooltipName]
-            if tooltip and tooltip:IsShown() then
-                addon:UpdateTrackedTooltip(tooltip)
-            elseif tooltip and tooltip.widgetContainer then
-                HideWidgetOverlays(tooltip.widgetContainer)
-            end
-        end
+        addon:RefreshVisibleTooltips()
     end)
 
     tooltipFrame:Show()
