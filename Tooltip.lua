@@ -14,11 +14,6 @@ local TOOLTIP_SIDES = {
 
 local tooltipFrame = CreateFrame("Frame")
 local elapsedSinceUpdate = 0
-local timerStartPercent
-local lastSeenPercent
-local elapsedTrackedTime = 0
-local RECALIBRATION_INTERVAL = 180
-local RECALIBRATION_THRESHOLD_PERCENT = 95
 
 local function GetPercentFromText(text)
     if not text then
@@ -39,28 +34,7 @@ local function GetSecondsRemaining(percent)
         return nil
     end
 
-    if not timerStartPercent then
-        timerStartPercent = percent
-        elapsedTrackedTime = 0
-    elseif lastSeenPercent and percent < lastSeenPercent then
-        timerStartPercent = percent
-        elapsedTrackedTime = 0
-    elseif percent >= 100 then
-        timerStartPercent = percent
-        elapsedTrackedTime = 0
-    elseif percent <= RECALIBRATION_THRESHOLD_PERCENT and elapsedTrackedTime >= RECALIBRATION_INTERVAL then
-        timerStartPercent = percent
-        elapsedTrackedTime = 0
-    end
-
-    lastSeenPercent = percent
-
-    local initialRemainingSeconds = (100 - timerStartPercent) * SECONDS_PER_PERCENT
-    return math.max(0, initialRemainingSeconds - elapsedTrackedTime)
-end
-
-local function ShouldAdvanceTrackedTime()
-    return WorldMapFrame and WorldMapFrame:IsShown()
+    return math.max(0, (100 - percent) * SECONDS_PER_PERCENT)
 end
 
 local function GetChild(frame, index)
@@ -279,10 +253,6 @@ end
 
 function addon:StartTooltipWatcher()
     tooltipFrame:SetScript("OnUpdate", function(_, elapsed)
-        if ShouldAdvanceTrackedTime() then
-            elapsedTrackedTime = elapsedTrackedTime + elapsed
-        end
-
         elapsedSinceUpdate = elapsedSinceUpdate + elapsed
         if elapsedSinceUpdate < UPDATE_INTERVAL then
             return
