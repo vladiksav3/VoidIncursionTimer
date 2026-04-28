@@ -3,6 +3,7 @@
 ## Notes: Tracks Void Incursion progress requirements
 ## Author: TrafalMar
 ## Version: 0.1.0
+## IconTexture: Interface\AddOns\VoidIncursion\Media\icon
 
 Core.lua
 Tooltip.lua
