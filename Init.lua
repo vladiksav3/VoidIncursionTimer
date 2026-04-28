@@ -3,7 +3,7 @@ local _, addon = ...
 addon.frame:RegisterEvent("PLAYER_LOGIN")
 addon.frame:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_LOGIN" then
-        addon:CreateMinimapButton()
-        addon:Print("loaded.")
+        addon:StartTooltipWatcher()
+        addon:Print(addon.L.loaded)
     end
 end)
