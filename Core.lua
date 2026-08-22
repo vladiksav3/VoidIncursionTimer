@@ -6,7 +6,10 @@ addon.frame = CreateFrame("Frame")
 addon.defaults = {
     displayMode = "static",
     displayModeVersion = 1,
-    minimapAngle = 225,
+    minimap = {
+        hide = false,
+        minimapPos = 225,
+    },
 }
 
 local locale = GetLocale()
@@ -20,7 +23,6 @@ local defaultStrings = {
     minimapTooltipStatusEstimated = "Mode: Estimated Time",
     minimapTooltipToggle = "Left-click to switch display mode.",
     minimapTooltipDrag = "Drag to move this button.",
-    minimapTooltipReset = "Right-click to reset position.",
 }
 local stringsByLocale = {
     enUS = {
@@ -103,6 +105,18 @@ function addon:InitializeSavedVariables()
             self.db[key] = value
         end
     end
+
+    if self.db.minimap == self.defaults.minimap then
+        self.db.minimap = {}
+    end
+    self.db.minimap = self.db.minimap or {}
+    if self.db.minimap.minimapPos == nil then
+        self.db.minimap.minimapPos = self.db.minimapAngle or self.defaults.minimap.minimapPos
+    end
+    if self.db.minimap.hide == nil then
+        self.db.minimap.hide = self.defaults.minimap.hide
+    end
+    self.db.minimapAngle = nil
 end
 
 function addon:GetDisplayMode()
@@ -138,15 +152,11 @@ function addon:ToggleDisplayMode()
 end
 
 function addon:GetMinimapAngle()
-    return (self.db and self.db.minimapAngle) or self.defaults.minimapAngle
+    return (self.db and self.db.minimap and self.db.minimap.minimapPos) or self.defaults.minimap.minimapPos
 end
 
 function addon:SetMinimapAngle(angle)
-    self.db.minimapAngle = angle
-end
-
-function addon:ResetMinimapAngle()
-    self:SetMinimapAngle(self.defaults.minimapAngle)
+    self.db.minimap.minimapPos = angle
 end
 
 function addon:ToggleEstimatedTime()

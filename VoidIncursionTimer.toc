@@ -5,6 +5,7 @@
 ## Version: 0.1.4
 ## IconTexture: Interface\AddOns\VoidIncursionTimer\Media\curseforge-logo.png
 ## SavedVariables: VoidIncursionTimerDB
+## OptionalDeps: LibDataBroker-1.1, LibDBIcon-1.0
 
 Core.lua
 Tooltip.lua
