@@ -102,7 +102,10 @@ local function StyleLibDBIconButton(button)
 
     local highlight = button:GetHighlightTexture()
     if highlight then
-        highlight:SetAlpha(0)
+        highlight:ClearAllPoints()
+        highlight:SetAllPoints(button)
+        highlight:SetBlendMode("ADD")
+        highlight:SetAlpha(1)
     end
 end
 
@@ -169,6 +172,11 @@ function addon:CreateMinimapButton()
     border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
     border:SetSize(BORDER_SIZE, BORDER_SIZE)
     border:SetPoint("TOPLEFT", BORDER_OFFSET, -BORDER_OFFSET)
+
+    local highlight = button:CreateTexture(nil, "HIGHLIGHT")
+    highlight:SetTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+    highlight:SetBlendMode("ADD")
+    highlight:SetAllPoints()
 
     button:SetScript("OnEnter", UpdateButtonTooltip)
     button:SetScript("OnLeave", GameTooltip_Hide)
